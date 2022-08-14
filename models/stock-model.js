@@ -6,7 +6,11 @@ const Schema = mongoose.Schema;
 
 const StockSchema = new Schema({
   ticker: String,
-  likes: Number
+  likes: Number,
 });
 
-export const StockModel = mongoose.model("stock", StockSchema);
+const StockModel = mongoose.model("stock", StockSchema);
+
+module.exports = {
+  StockModel,
+};

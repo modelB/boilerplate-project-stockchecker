@@ -1,9 +1,9 @@
-import { StockModel } from "../models/stock-model";
-import { UserModel } from "../models/user-model";
+const { StockModel } = require("../models/stock-model");
+const { UserModel } = require("../models/user-model");
 
-export const dbController = {
+const dbController = {
   async findUser(hashedIpAddress) {
-    return await UserModel.find({ hashed_ip_address: hashedIpAddress });
+    return await UserModel.findOne({ hashed_ip_address: hashedIpAddress })
   },
 
   async createUser(hashedIpAddress, likes) {
@@ -21,7 +21,7 @@ export const dbController = {
   },
 
   async findStock(ticker) {
-    return await StockModel.find({ ticker });
+    return await StockModel.findOne({ ticker });
   },
 
   async createStock(ticker, likes) {
@@ -37,4 +37,8 @@ export const dbController = {
       likes,
     });
   },
+};
+
+module.exports = {
+  dbController,
 };
