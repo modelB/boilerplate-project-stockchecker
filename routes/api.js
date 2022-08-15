@@ -3,118 +3,72 @@
 const { default: axios } = require("axios");
 const { dbController } = require("../controllers/db-controller");
 const bcrypt = require("bcrypt");
+const { db } = require("../db-connect");
+const { hashCode } = require("../utils");
 
 module.exports = function (app) {
   app.route("/api/stock-prices").get(async (req, res) => {
-    const { stock: stocks, like } = req.query;
-    const existingUser = await dbController.findUser(hashedIp);
-    if (stocks.length === 1) {
-      const stock = stocks[0];
-      const stockPriceRes = (
-        await axios.get(
-          `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
-        )
-      ).data;
+    let { stock: stocks, like } = req.query;
+    if (typeof stocks === "string") stocks = [stocks];
+    if (stocks) {
       const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-      let hashedIp;
-      bcrypt.hash(ip, 13, (err, hash) => {
-        hashedIp = hash;
-      });
-      let existingStock = await dbController.findStock(stock);
-      if (!existingStock) {
-        existingStock = { ticker: stock, likes: 0 };
-        await dbController.createStock(stock, 0);
-      }
-      console.log("existingUSer:", existingUser);
-      console.log("existingStock", existingStock);
-      let likes = existingStock.likes;
-
-      // console.log("existinguser likedstocks:", existingUser && existingUser.liked_stocks.includes(stock));
-      if (like === "true") {
-        if (!existingUser) {
-          await dbController.createUser(hashedIp, [stock]);
-          await dbController.updateStock(stock, ++likes);
-        } else if (!existingUser.liked_stocks.includes(stock)) {
-          await dbController.updateUser(hashedIp, [
-            stock,
-            ...existingUser.liked_stocks,
-          ]);
-          await dbController.updateStock(stock, ++likes);
-        }
-      } else if (existingUser && existingUser.liked_stocks.includes(stock)) {
-        console.log("PLEASE LOG ME", existingUser);
-        const indexOfUnlikedStock = existingUser.liked_stocks.indexOf(stock);
-        const newLikedStocks = existingUser.liked_stocks.slice();
-        newLikedStocks.splice(indexOfUnlikedStock, 1);
-        await dbController.updateUser(hashedIp, newLikedStocks);
-        await dbController.updateStock(stock, --likes);
-      }
-
-      res.status(200).send({
-        stockData: {
-          stock: stock.toUpperCase(),
-          price: stockPriceRes.latestPrice,
-          likes: likes,
-        },
-      });
-    } else if (stocks.length === 2) {
-      const existingStocks = await Promise.all(
-        stocks.map((stock) => {
-          dbController.findStock(stock);
-        })
-      );
-      for (let i = 0; i < 2; i++) {
-        if (!existingStocks[i]) {
-          await dbController.createStock(stocks[i], 0);
-          existingStocks[i] = { ticker: stocks[i], likes: 0 };
-        }
-      }
-      let stockPriceApiRes = await Promise.all(
+      const hashedIp = hashCode(ip);
+      console.log(hashedIp)
+      const stockPriceData = await Promise.all(
         stocks.map((stock) =>
-          axios.get(
-            `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
-          )
+          axios
+            .get(
+              `https://stock-price-checker-proxy.freecodecamp.rocks/v1/stock/${stock}/quote`
+            )
+            .catch((err) => null)
         )
       );
-      if (like === "true") {
-        console.log("ENTERING LIKE");
-        console.log("existing stocks before:", existingStocks);
-        for (let i = 0; i < 2; i++) {
-          if (
-            !existingUser.liked_stocks.includes(existingStocks[i].ticker) ||
-            !existingUser
-          ) {
-            if (!existingUser) {
-              await dbController.createUser(hashedIp, [
-                existingStocks[i].ticker,
-              ]);
-              existingUser = {
-                hashed_ip_address: hashedIp,
-                liked_stocks: [existingStocks[i].ticker],
-              };
-            } else {
-              await dbController.updateUser(hashedIp, [
-                ...existingUser.liked_stocks,
-                existingStocks[i].ticker,
-              ]);
-            }
-            existingStocks[i].likes = existingStocks[i].likes + 1;
-            console.log(existingStocks[i].ticker, existingStocks[i].likes);
-            await dbController.updateStock(
-              existingStocks[i].ticker,
-              existingStocks[i].likes
-            );
+      const stockDbData = await Promise.all(
+        stocks.map((stock) => dbController.findStock(stock))
+      );
+      // console.log(stockDbData);
+      for (let i = 0; i < stocks.length; i++) {
+        if (!stockDbData[i]) {
+
+          console.log("NO STOCK FOUND IN DB");
+          const likingIps = like === "true" ? [hashedIp] : [];
+          await dbController.createStock(stocks[i], likingIps);
+          stockDbData[i] = { stock: stocks[i], likingIps };
+        } else {
+          console.log("STOCK FOUND IN DB");
+          console.log(stockDbData[i])
+          const likingIps = stockDbData[i].likingIps;
+          if (like === "true" && !likingIps.includes(hashedIp)) {
+            console.log("NEW LIKE");
+            likingIps.push(hashedIp);
+            console.log("LIKING IPS", likingIps);
+
+            await dbController.updateStock(stockDbData[i].stock, likingIps);
+            console.log('FINISHED UPDATING');
+            stockDbData[i].likingIps = likingIps;
           }
         }
-        console.log("existing stocks after:", existingStocks);
       }
-      console.log(existingStocks);
-      const formattedResBody = stockPriceApiRes.map((stock, i) => ({
-        stock: stocks[i],
-        price: stock.data.latestPrice,
-        rel_likes: existingStocks[i].likes - existingStocks[(i + 1) % 2].likes,
-      }));
-      res.status(200).send({ stockData: formattedResBody });
+
+      res.status(200).send(
+        stocks.length === 1
+          ? {
+              stockData: {
+                stock: stocks[0].toUpperCase(),
+                price: stockPriceData[0].data.latestPrice,
+                likes: stockDbData[0].likingIps.length,
+              },
+            }
+          : {
+              stockData: stocks.map((stock, i) => ({
+                stock: stock.toUpperCase(),
+                price: stockPriceData[i].data.latestPrice,
+                rel_likes:
+                  stockDbData[i].likingIps.length -
+                  stockDbData[(i + 1) % 2].likingIps.length,
+              })),
+            }
+      );
     } else res.send(400);
   });
 };

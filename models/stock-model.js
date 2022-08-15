@@ -5,8 +5,8 @@ const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const StockSchema = new Schema({
-  ticker: String,
-  likes: Number,
+  stock: String,
+  likingIps: [{ type: String }],
 });
 
 const StockModel = mongoose.model("stock", StockSchema);

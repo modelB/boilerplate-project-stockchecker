@@ -1,40 +1,22 @@
 const { StockModel } = require("../models/stock-model");
-const { UserModel } = require("../models/user-model");
-
 const dbController = {
-  async findUser(hashedIpAddress) {
-    return await UserModel.findOne({ hashed_ip_address: hashedIpAddress })
+  findStock(stock) {
+    return StockModel.findOne({ stock });
   },
 
-  async createUser(hashedIpAddress, likes) {
-    return await UserModel.create({
-      hashed_ip_address: hashedIpAddress,
-      liked_stocks: likes,
+  createStock(stock, likingIps) {
+    return StockModel.create({
+      stock,
+      likingIps,
     });
   },
 
-  async updateUser(hashedIpAddress, likes) {
-    return await UserModel.updateOne({
-      hashed_ip_address: hashedIpAddress,
-      liked_stocks: likes,
-    });
-  },
-
-  async findStock(ticker) {
-    return await StockModel.findOne({ ticker });
-  },
-
-  async createStock(ticker, likes) {
-    return await StockModel.create({
-      ticker,
-      likes,
-    });
-  },
-
-  async updateStock(ticker, likes) {
-    return await StockModel.updateOne({
-      ticker,
-      likes,
+  updateStock(stock, likingIps) {
+    console.log('STOCK IN UPDATE STOCK:', stock);
+    console.log('LIKINGIPS in UPDATE STOCK:', likingIps);
+    return StockModel.updateOne({
+      stock,
+      likingIps,
     });
   },
 };
