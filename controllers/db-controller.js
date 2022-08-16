@@ -12,8 +12,6 @@ const dbController = {
   },
 
   updateStock(stock, likingIps) {
-    console.log('STOCK IN UPDATE STOCK:', stock);
-    console.log('LIKINGIPS in UPDATE STOCK:', likingIps);
     return StockModel.updateOne({
       stock,
       likingIps,

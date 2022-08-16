@@ -3,7 +3,6 @@ const mongoose = require("mongoose");
 
 //Set up default mongoose connection
 const mongoDBConnectionString = process.env.DB;
-console.log(mongoDBConnectionString)
 mongoose.connect(mongoDBConnectionString, {
   useNewUrlParser: true,
   useUnifiedTopology: true,

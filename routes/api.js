@@ -13,7 +13,6 @@ module.exports = function (app) {
     if (stocks) {
       const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
       const hashedIp = hashCode(ip);
-      console.log(hashedIp)
       const stockPriceData = await Promise.all(
         stocks.map((stock) =>
           axios
@@ -26,25 +25,18 @@ module.exports = function (app) {
       const stockDbData = await Promise.all(
         stocks.map((stock) => dbController.findStock(stock))
       );
-      // console.log(stockDbData);
       for (let i = 0; i < stocks.length; i++) {
         if (!stockDbData[i]) {
 
-          console.log("NO STOCK FOUND IN DB");
           const likingIps = like === "true" ? [hashedIp] : [];
           await dbController.createStock(stocks[i], likingIps);
           stockDbData[i] = { stock: stocks[i], likingIps };
         } else {
-          console.log("STOCK FOUND IN DB");
-          console.log(stockDbData[i])
           const likingIps = stockDbData[i].likingIps;
           if (like === "true" && !likingIps.includes(hashedIp)) {
-            console.log("NEW LIKE");
             likingIps.push(hashedIp);
-            console.log("LIKING IPS", likingIps);
 
             await dbController.updateStock(stockDbData[i].stock, likingIps);
-            console.log('FINISHED UPDATING');
             stockDbData[i].likingIps = likingIps;
           }
         }
